@@ -3,6 +3,8 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
+const submitFunctionUrl = import.meta.env.PUBLIC_BIOLOGY_SUBMIT_URL || `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/submit-biology-resource`;
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
 ---
 
 <SiteLayout>
@@ -27,6 +29,8 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
       data-biology-archive
       data-supabase-url={supabaseUrl}
       data-supabase-anon-key={supabaseAnonKey}
+      data-submit-function-url={submitFunctionUrl}
+      data-turnstile-site-key={turnstileSiteKey}
     >
       <div class="section-heading">
         <div>
@@ -72,9 +76,66 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
         <h2 id="contribute-title">Need another Biology resource?</h2>
         <p>Contact the Study Hub team to request a topic or suggest material for the archive.</p>
       </div>
+        <button class="button button-primary" id="open-contribution" type="button">Submit a resource <span aria-hidden="true">+</span></button>
       <a class="button button-light" href="mailto:trusteth777@gmail.com?subject=Biology%20resource%20request">Request a resource <span aria-hidden="true">↗</span></a>
     </section>
   </main>
+  <dialog class="contribution-dialog" id="contribution-dialog" aria-labelledby="contribution-title">
+    <form id="contribution-form">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Community contribution</p>
+          <h2 id="contribution-title">Submit a Biology resource</h2>
+        </div>
+        <button class="icon-button" id="close-contribution" type="button" aria-label="Close">×</button>
+      </div>
+      <p class="dialog-note">Uploads stay private until reviewed. Only share materials you have permission to distribute.</p>
+      <label class="form-field">
+        <span>Resource title</span>
+        <input name="title" type="text" minlength="3" maxlength="120" required />
+      </label>
+      <div class="form-grid">
+        <label class="form-field">
+          <span>Collection</span>
+          <select name="category" required>
+            <option value="notes">Notes</option>
+            <option value="papers">Past papers</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Level (optional)</span>
+          <select name="level">
+            <option value="">Not specified</option>
+            <option value="O-Level">O-Level</option>
+            <option value="A-Level">A-Level</option>
+            <option value="S.3">S.3</option>
+            <option value="S.4">S.4</option>
+            <option value="S.5">S.5</option>
+            <option value="S.6">S.6</option>
+          </select>
+        </label>
+      </div>
+      <label class="form-field">
+        <span>Year (optional)</span>
+        <input name="year" type="number" min="1990" max="2035" inputmode="numeric" />
+      </label>
+      <label class="form-field">
+        <span>File</span>
+        <input name="file" type="file" accept=".pdf,.doc,.docx,.rtf,.txt" required />
+        <small>PDF, Word, RTF, or text file. Maximum 50 MB.</small>
+      </label>
+      <label class="rights-check">
+        <input name="rights_confirmed" type="checkbox" required />
+        <span>I have permission to share this material with the public.</span>
+      </label>
+      <div class="verification" id="turnstile-widget"></div>
+      <p class="upload-status" id="upload-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button class="button button-outline" id="cancel-contribution" type="button">Cancel</button>
+        <button class="button button-primary" id="submit-contribution" type="submit" disabled>Send for review</button>
+      </div>
+    </form>
+  </dialog>
 </SiteLayout>
 
 <script>

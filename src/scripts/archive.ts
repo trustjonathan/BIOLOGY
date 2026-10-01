@@ -18,11 +18,20 @@ interface ArchiveState {
   pageSize: number;
 }
 
+type TurnstileApi = {
+  render: (container: string, options: Record<string, unknown>) => string;
+  reset: () => void;
+};
+
+const getTurnstile = () => (window as Window & { turnstile?: TurnstileApi }).turnstile;
+
 const archive = document.querySelector<HTMLElement>('[data-biology-archive]');
 
 if (archive) {
   const supabaseUrl = archive.dataset.supabaseUrl || '';
   const anonKey = archive.dataset.supabaseAnonKey || '';
+  const submitFunctionUrl = archive.dataset.submitFunctionUrl || '';
+  const turnstileSiteKey = archive.dataset.turnstileSiteKey || '';
   const state: ArchiveState = { items: [], category: 'all', page: 1, pageSize: 24 };
   const list = document.querySelector<HTMLElement>('#resource-list')!;
   const status = document.querySelector<HTMLElement>('#archive-status')!;
@@ -31,6 +40,91 @@ if (archive) {
   const sortOrder = document.querySelector<HTMLSelectElement>('#sort-order')!;
   const loadMore = document.querySelector<HTMLButtonElement>('#load-more')!;
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('.archive-tabs button')];
+  const contributionDialog = document.querySelector<HTMLDialogElement>('#contribution-dialog')!;
+  const contributionForm = document.querySelector<HTMLFormElement>('#contribution-form')!;
+  const uploadStatus = document.querySelector<HTMLElement>('#upload-status')!;
+  const submitButton = document.querySelector<HTMLButtonElement>('#submit-contribution')!;
+  const turnstileInput = document.createElement('input');
+  turnstileInput.type = 'hidden';
+  turnstileInput.name = 'cf-turnstile-response';
+  contributionForm.append(turnstileInput);
+
+  function setUploadMessage(message: string, stateName = ''): void {
+    uploadStatus.textContent = message;
+    uploadStatus.dataset.state = stateName;
+  }
+
+  function initializeTurnstile(): void {
+    if (!turnstileSiteKey) {
+      setUploadMessage('Uploads are not enabled yet. Secure verification is being configured.');
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      const turnstile = getTurnstile();
+      if (!turnstile) {
+        setUploadMessage('Verification could not load. Please try again later.', 'error');
+        return;
+      }
+      turnstile.render('#turnstile-widget', {
+        sitekey: turnstileSiteKey,
+        callback(token: string) {
+          turnstileInput.value = token;
+          submitButton.disabled = false;
+        },
+        'expired-callback'() {
+          turnstileInput.value = '';
+          submitButton.disabled = true;
+        },
+        'error-callback'() {
+          turnstileInput.value = '';
+          submitButton.disabled = true;
+          setUploadMessage('Verification failed to load. Please try again later.', 'error');
+        }
+      });
+    };
+    script.onerror = () => setUploadMessage('Verification could not load. Please try again later.', 'error');
+    document.head.append(script);
+  }
+
+  document.querySelector<HTMLButtonElement>('#open-contribution')?.addEventListener('click', () => contributionDialog.showModal());
+  document.querySelector<HTMLButtonElement>('#close-contribution')?.addEventListener('click', () => contributionDialog.close());
+  document.querySelector<HTMLButtonElement>('#cancel-contribution')?.addEventListener('click', () => contributionDialog.close());
+  contributionDialog.addEventListener('click', (event) => {
+    if (event.target === contributionDialog) contributionDialog.close();
+  });
+
+  contributionForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!submitFunctionUrl || !anonKey || !turnstileInput.value) {
+      setUploadMessage('Secure upload is not configured yet. Please try again later.', 'error');
+      return;
+    }
+
+    submitButton.disabled = true;
+    setUploadMessage('Sending your resource for review...');
+    try {
+      const response = await fetch(submitFunctionUrl, {
+        method: 'POST',
+        headers: { apikey: anonKey },
+        body: new FormData(contributionForm)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Upload failed (HTTP ${response.status}).`);
+      contributionForm.reset();
+      turnstileInput.value = '';
+      getTurnstile()?.reset();
+      submitButton.disabled = true;
+      setUploadMessage('Thank you. Your upload is private and will appear after review.', 'success');
+    } catch (error) {
+      submitButton.disabled = !turnstileInput.value;
+      setUploadMessage(error instanceof Error ? error.message : 'The resource could not be submitted.', 'error');
+    }
+  });
     function publicObjectUrl(item: Resource): string {
       const bucket = encodeURIComponent(item.storage_bucket || 'study-hub-resources');
       const path = item.storage_path.split('/').map(encodeURIComponent).join('/');
@@ -178,5 +272,6 @@ if (archive) {
     sortOrder.addEventListener('change', render);
     loadMore.addEventListener('click', () => { state.page += 1; render(); });
 
-    void loadArchive();
+  initializeTurnstile();
+  void loadArchive();
 }
