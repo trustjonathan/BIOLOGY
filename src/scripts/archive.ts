@@ -131,6 +131,13 @@ if (archive) {
       return `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${path}`;
     }
 
+    function readerUrl(item: Resource): string {
+      const url = new URL('https://trustjonathan.github.io/STUDY-HUB/full_page_flipbook_viewer/index.html');
+      url.searchParams.set('file', publicObjectUrl(item));
+      url.searchParams.set('title', item.title || item.original_filename || 'Biology resource');
+      return url.href;
+    }
+
     function formatBytes(value: number | null): string {
       const bytes = Number(value) || 0;
       if (!bytes) return '';
@@ -256,10 +263,8 @@ if (archive) {
 
         const open = document.createElement('a');
         open.className = 'resource-open';
-        open.href = publicObjectUrl(item);
-        open.target = '_blank';
-        open.rel = 'noopener noreferrer';
-        open.textContent = 'Open resource';
+        open.href = readerUrl(item);
+        open.textContent = 'Read in Study Hub';
         open.setAttribute('aria-label', `Open ${title.textContent}`);
         row.append(open);
         list.append(row);
