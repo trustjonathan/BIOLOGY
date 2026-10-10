@@ -12,16 +12,16 @@ The browser uses only the public anon key. Never place `SUPABASE_SERVICE_ROLE_KE
 
 ## Secure resource submissions
 
-Biology contributions are uploaded to a private `biology-resource-submissions` bucket and remain pending until curator review. They are not published into `study_hub_resources` automatically.
+New Biology archive and reader contributions are uploaded to the shared private `study-hub-contributions` bucket under `contribution/`. Archive-form details remain in `study_hub_biology_submissions`; reader submissions are unclassified for manual sorting. Neither upload path publishes files into `study_hub_resources` automatically. Existing pending files in the older private bucket remain there.
 
 Before enabling submissions:
 
-1. Apply the Study Hub migration `20261001110000_study_hub_biology_submissions.sql`.
-2. Deploy the `submit-biology-resource` Edge Function.
-3. Configure Edge Function secrets `TURNSTILE_SECRET_KEY`, `SUBMISSION_RATE_LIMIT_SALT`, and `BIOLOGY_ARCHIVE_ALLOWED_ORIGINS`.
+1. Apply `20261001110000_study_hub_biology_submissions.sql` and the shared inbox migration `20261009150000_study_hub_contributions_inbox.sql`.
+2. Deploy `submit-biology-resource` and `submit-resource-contribution`.
+3. Configure Edge Function secrets `TURNSTILE_SECRET_KEY`, `SUBMISSION_RATE_LIMIT_SALT`, `BIOLOGY_ARCHIVE_ALLOWED_ORIGINS`, and `STUDY_HUB_ALLOWED_ORIGINS`.
 4. Set `PUBLIC_TURNSTILE_SITE_KEY` in local `.env` and the corresponding GitHub Actions variable.
 
-The public archive only displays curated rows from `study_hub_resources`. Review pending submissions in Supabase, then copy approved objects into `study-hub-resources` under `documents/bio/notes/` or `documents/bio/papers/` and insert their catalog metadata. Never expose a service-role key to the browser.
+The public archive only displays curated rows from `study_hub_resources`. Review pending submissions in Supabase, then copy selected objects from `study-hub-contributions/contribution/` into `study-hub-resources` under `documents/bio/notes/` or `documents/bio/papers/` and insert their catalog metadata. Never expose a service-role key to the browser.
 
 ## Build and deploy
 
